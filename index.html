@@ -1,0 +1,629 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Camera, ChevronRight, CheckCircle, Languages, Lock, LogOut, 
+  ExternalLink, Download, Trash2, Activity, RefreshCw, Zap, 
+  ShieldCheck, Home, Target, Sparkles, User, Info, Calendar, 
+  Scan, Database, UserCheck, Phone, ArrowLeft, Star, 
+  MessageSquare, Share, DownloadCloud, BadgeCheck, Medal, 
+  Stethoscope, Microscope, Crosshair 
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+
+// --- CONFIGURACIÓN DE ENTORNO (Gemini & Firebase) ---
+const apiKey = ""; 
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'dlaser-madrid-dark-v6';
+const firebaseConfig = JSON.parse(__firebase_config);
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const WHATSAPP_NUMBER = "34641680749"; 
+const ADMIN_USER = "admin_dlaser";
+const ADMIN_PASS = "DLASER2024";
+
+const TRANSLATIONS = {
+  es: {
+    profGreeting: "Soy tu profesional de confianza",
+    profBio: "Especialista en dermocosmética avanzada y tecnología láser. Mi objetivo es guiarte hacia tu mejor versión con ciencia, precisión y un trato humano.",
+    profStatus: "Especialista Verificada",
+    profAction: "Analizar mi piel ahora",
+    profShare: "Compartir App",
+    specialties: ["Anti-edad", "Tecnología Láser", "Cuidado Clínico"],
+    navHome: "Inicio",
+    navAdmin: "Admin",
+    heroTitle: "Diagnóstico Facial de Alta Gama",
+    startBtn: "Iniciar Evaluación IA",
+    scanTitle: "Mapeo Cutáneo",
+    validating: "Certificando iluminación...",
+    validated: "Imagen Certificada",
+    analyzing: "Analizando biomarcadores...",
+    resultsTitle: "Reporte Clínico",
+    disclaimer: "Estimación estética profesional. No sustituye valoración médica presencial.",
+    leadTitle: "Finalizar Diagnóstico",
+    leadSub: "Tus resultados están listos. Introduce tus datos para visualizarlos y guardarlos.",
+    btnWhatsApp: "Cita vía WhatsApp",
+    ageEst: "Edad Estética",
+    ageReal: "Edad Cronológica",
+    adminTitle: "Control Clínico",
+    adminLeads: "Pacientes Recientes",
+    reviews: "Experiencias DLASER",
+    leaveReview: "Tu valoración",
+    login: "Acceso Staff",
+    metricHydra: "Hidratación",
+    metricText: "Textura",
+    metricPore: "Poros",
+    metricLight: "Luminosidad",
+    sendReview: "Enviar Opinión",
+    placeholderReview: "Tu experiencia...",
+    aiPrompt: "Actúa como un Director Médico de estética. Analiza la imagen y devuelve un JSON con: skinType, phototype (Fitzpatrick), phototypeDesc, hydration (0-100), texture (0-100), pores (0-100), luminosity (0-100), issues (lista de strings), flaccidity, estimatedAge, diagnosis (3 líneas técnicas en español), recommendation (tratamiento DLASER en español)."
+  },
+  en: {
+    profGreeting: "I am your trusted professional",
+    profBio: "Specialist in advanced dermocosmetics and laser technology. My goal is to guide you to your best version with science and precision.",
+    profStatus: "Verified Expert",
+    profAction: "Analyze my skin now",
+    profShare: "Share App",
+    specialties: ["Anti-aging", "Laser Tech", "Clinical Care"],
+    navHome: "Home",
+    navAdmin: "Admin",
+    heroTitle: "Premium Facial Diagnosis",
+    startBtn: "Start AI Evaluation",
+    scanTitle: "Skin Mapping",
+    validating: "Certifying lighting...",
+    validated: "Image Certified",
+    analyzing: "Analyzing biomarkers...",
+    resultsTitle: "Clinical Report",
+    disclaimer: "Professional aesthetic estimate. Not a medical substitute.",
+    leadTitle: "Finalize Diagnosis",
+    leadSub: "Your results are ready. Enter your details to view them.",
+    btnWhatsApp: "WhatsApp Appointment",
+    ageEst: "Aesthetic Age",
+    ageReal: "Chronological Age",
+    adminTitle: "Clinical Control",
+    adminLeads: "Recent Patients",
+    reviews: "DLASER Experiences",
+    leaveReview: "Your review",
+    login: "Staff Login",
+    metricHydra: "Hydration",
+    metricText: "Texture",
+    metricPore: "Pores",
+    metricLight: "Luminosity",
+    sendReview: "Submit Review",
+    placeholderReview: "Your experience...",
+    aiPrompt: "Act as a Medical Director of aesthetics. Analyze and return a JSON with: skinType, phototype (Fitzpatrick), phototypeDesc, hydration (0-100), texture (0-100), pores (0-100), luminosity (0-100), issues (list of strings), flaccidity, estimatedAge, diagnosis (3 technical lines in English), recommendation (DLASER treatment in English)."
+  },
+  it: {
+    profGreeting: "Sono la tua professionista di fiducia",
+    profBio: "Specialista in dermocosmesi avanzata e tecnologia laser. Il mio obiettivo è guidarti verso la tua versione migliore con scienza e precisione.",
+    profStatus: "Specialista Verificata",
+    profAction: "Analizza la mia pelle",
+    profShare: "Condividi App",
+    specialties: ["Anti-aging", "Laser Tech", "Clinical Care"],
+    navHome: "Inizio",
+    navAdmin: "Admin",
+    heroTitle: "Diagnosi Facciale Premium",
+    startBtn: "Inizia Valutazione IA",
+    scanTitle: "Mappatura Cutanea",
+    validating: "Certificazione luce...",
+    validated: "Immagine Certificata",
+    analyzing: "Analisi dei biomarcatori...",
+    resultsTitle: "Rapporto Clinico",
+    disclaimer: "Stima estetica professionale. Non sostituisce il parere medico.",
+    leadTitle: "Finalizza Diagnosi",
+    leadSub: "I tuoi risultati sono pronti. Inserisci i dati per vederli.",
+    btnWhatsApp: "Appuntamento WhatsApp",
+    ageEst: "Età Estetica",
+    ageReal: "Età Cronologica",
+    adminTitle: "Controllo Clinico",
+    adminLeads: "Pazienti Recenti",
+    reviews: "Esperienze DLASER",
+    leaveReview: "La tua opinione",
+    login: "Accesso Staff",
+    metricHydra: "Idratazione",
+    metricText: "Texture",
+    metricPore: "Pori",
+    metricLight: "Luminosità",
+    sendReview: "Invia Opinione",
+    placeholderReview: "La tua esperienza...",
+    aiPrompt: "Agisci come Direttore Medico di estetica. Analizza e restituisci un JSON con: skinType, phototype (Fitzpatrick), phototypeDesc, hydration (0-100), texture (0-100), pores (0-100), luminosity (0-100), issues (lista di stringhe), flaccidity, estimatedAge, diagnosis (3 linee tecniche in italiano), recommendation (trattamento DLASER in italiano)."
+  }
+};
+
+// --- COMPONENTES VISUALES ---
+
+const ProfessionalBiometricFace = () => (
+  <div className="relative w-full h-full group overflow-hidden">
+    <img 
+      src="https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&q=80&w=800" 
+      alt="Clinical Professional"
+      className="w-full h-full object-cover grayscale-[0.2] brightness-[0.7] transition-all group-hover:brightness-90 group-hover:scale-105 duration-1000"
+    />
+    <div className="absolute inset-0 pointer-events-none z-10">
+      <svg viewBox="0 0 100 100" className="w-full h-full text-[#C5A059] opacity-40">
+        <circle cx="50" cy="45" r="40" fill="none" stroke="currentColor" strokeWidth="0.15" strokeDasharray="1 2" />
+        <rect x="5" y="0" width="90" height="0.6" fill="currentColor" className="animate-scan-line shadow-[0_0_10px_#C5A059]" />
+        {/* Puntos Biométricos */}
+        <circle cx="35" cy="40" r="0.8" fill="currentColor" className="animate-pulse" />
+        <circle cx="65" cy="40" r="0.8" fill="currentColor" className="animate-pulse" />
+        <circle cx="50" cy="55" r="0.8" fill="currentColor" />
+        <circle cx="35" cy="65" r="0.8" fill="currentColor" />
+        <circle cx="65" cy="65" r="0.8" fill="currentColor" />
+        {/* Marcos HUD */}
+        <path d="M10 10 L20 10 M10 10 L10 20" stroke="currentColor" strokeWidth="0.5" />
+        <path d="M90 10 L80 10 M90 10 L90 20" stroke="currentColor" strokeWidth="0.5" />
+        <path d="M10 90 L20 90 M10 90 L10 80" stroke="currentColor" strokeWidth="0.5" />
+        <path d="M90 90 L80 90 M90 90 L90 80" stroke="currentColor" strokeWidth="0.5" />
+      </svg>
+    </div>
+  </div>
+);
+
+// --- APLICACIÓN PRINCIPAL ---
+
+export default function App() {
+  const [view, setView] = useState('home'); 
+  const [lang, setLang] = useState('es');
+  const [image, setImage] = useState(null);
+  const [diagnosis, setDiagnosis] = useState(null);
+  const [user, setUser] = useState(null);
+  const [records, setRecords] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraFeedback, setCameraFeedback] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [adminUser, setAdminUser] = useState("");
+  const [adminPass, setAdminPass] = useState("");
+  const [leadData, setLeadData] = useState({ name: '', phone: '', age: '' });
+  const [newReview, setNewReview] = useState({ text: '', rating: 5, name: '' });
+  const [isSplashActive, setIsSplashActive] = useState(true);
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const t = TRANSLATIONS[lang];
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsSplashActive(false), 2500);
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) { console.error(err); }
+    };
+    initAuth();
+    const unsub = onAuthStateChanged(auth, setUser);
+    return () => { unsub(); clearTimeout(timer); };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    // FETCH RECORDS
+    const unsubRec = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'diagnoses')), (snap) => {
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setRecords(data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+    });
+    // FETCH REVIEWS
+    const unsubRev = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'reviews')), (snap) => {
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setReviews(data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+    });
+    return () => { unsubRec(); unsubRev(); };
+  }, [user]);
+
+  const startCamera = async () => {
+    setView('scan');
+    setIsCameraActive(true);
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      if (videoRef.current) videoRef.current.srcObject = s;
+    } catch (err) { setIsCameraActive(false); }
+  };
+
+  const capturePhoto = () => {
+    setCameraFeedback(String(t.validating));
+    setTimeout(() => {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      if (video && canvas) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        setImage(canvas.toDataURL('image/png'));
+        setCameraFeedback(String(t.validated));
+        if (video.srcObject) video.srcObject.getTracks().forEach(tr => tr.stop());
+        setIsCameraActive(false);
+      }
+    }, 1200);
+  };
+
+  const runAnalysis = async () => {
+    if (!user) return;
+    setIsAnalyzing(true);
+    setView('analyzing');
+    try {
+      const b64 = image.split(',')[1];
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: t.aiPrompt }, { inlineData: { mimeType: "image/png", data: b64 } }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+      const result = await res.json();
+      const data = JSON.parse(result.candidates[0].content.parts[0].text);
+      setDiagnosis(data);
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'diagnoses'), {
+        ...data, image, leadName: String(leadData.name), leadPhone: String(leadData.phone), createdAt: serverTimestamp()
+      });
+      setView('results');
+    } catch (e) { setView('scan'); }
+    setIsAnalyzing(false);
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'DLASER MADRID',
+          text: 'Descubre tu diagnóstico facial profesional.',
+          url: window.location.href,
+        });
+      } catch (err) { console.error(err); }
+    }
+  };
+
+  const submitReview = async () => {
+    if (!user || !newReview.text || !newReview.name) return;
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'reviews'), {
+      ...newReview, createdAt: serverTimestamp()
+    });
+    setNewReview({ text: '', rating: 5, name: '' });
+  };
+
+  if (isSplashActive) {
+    return (
+      <div className="h-screen w-full bg-black flex flex-col items-center justify-center text-white p-12 overflow-hidden">
+        <div className="w-20 h-20 bg-[#C5A059] rounded-3xl flex items-center justify-center mb-8 animate-pulse shadow-[0_0_50px_rgba(197,160,89,0.4)]">
+          <Zap size={32} fill="white" className="text-white" />
+        </div>
+        <h1 className="font-serif text-3xl font-bold tracking-[0.4em] mb-2 text-white">DLASER</h1>
+        <p className="text-[10px] uppercase tracking-[0.6em] text-[#C5A059] font-bold">Scientific Beauty</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#000000] text-white font-sans selection:bg-[#C5A059]/30 flex flex-col">
+      
+      {/* HEADER PREMIUM DARK */}
+      <header className="fixed top-0 left-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex justify-between items-center safe-top">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
+          <div className="w-8 h-8 bg-[#C5A059] rounded-full flex items-center justify-center text-white shadow-lg">
+            <Zap size={14} fill="currentColor" />
+          </div>
+          <h1 className="font-serif font-black text-xs tracking-[0.2em] uppercase leading-none text-white">DLASER</h1>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {['es', 'en', 'it'].map((l) => (
+            <button key={l} onClick={() => setLang(l)} 
+              className={`text-[8px] font-black uppercase px-2 py-1.5 rounded-md transition-all border ${lang === l ? 'bg-[#C5A059] text-white border-[#C5A059]' : 'text-gray-600 border-white/5 hover:bg-white/5'}`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <main className="flex-1 pt-20 pb-40 px-6 max-w-xl mx-auto w-full">
+        
+        {/* VIEW: HOME (PERFIL PROFESIONAL) */}
+        {view === 'home' && (
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 mt-6">
+            <div className="bg-[#0A0A0A] rounded-[3.5rem] p-0 border border-white/5 shadow-2xl relative overflow-hidden mb-12">
+               <div className="relative z-10 flex flex-col items-center">
+                  <div className="w-full h-96 relative">
+                     <ProfessionalBiometricFace />
+                     <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-transparent to-transparent"></div>
+                     <div className="absolute bottom-6 right-6 bg-[#C5A059] p-2 rounded-full border-4 border-[#0A0A0A] shadow-lg">
+                        <BadgeCheck size={24} className="text-white" />
+                     </div>
+                  </div>
+                  
+                  <div className="px-8 pb-12 -mt-8 text-center relative z-20">
+                    <h2 className="text-3xl font-serif font-bold text-white mb-2">{String(t.profGreeting)}</h2>
+                    <div className="flex items-center justify-center gap-1.5 mb-6">
+                        <Medal size={14} className="text-[#C5A059]" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#C5A059]">{String(t.profStatus)}</span>
+                    </div>
+                    <p className="text-sm text-gray-400 font-light leading-relaxed mb-10 px-2 italic">
+                       "{String(t.profBio)}"
+                    </p>
+                    <div className="grid grid-cols-3 gap-3 w-full mb-12">
+                       {(t.specialties || []).map((s, idx) => (
+                          <div key={idx} className="bg-white/5 py-4 rounded-3xl border border-white/5 flex flex-col items-center">
+                             <p className="text-[9px] font-black uppercase tracking-tighter text-[#C5A059]">{String(s)}</p>
+                          </div>
+                       ))}
+                    </div>
+                    <div className="space-y-4">
+                      <button onClick={() => setView('scan')} className="w-full bg-[#C5A059] text-white py-6 rounded-[2.5rem] font-bold shadow-[0_15px_40px_rgba(197,160,89,0.2)] flex items-center justify-center gap-4 hover:scale-[1.02] transition-transform group active:scale-95">
+                        <Scan size={22} className="text-white animate-pulse" /> {String(t.profAction)}
+                      </button>
+                      <button onClick={handleShare} className="w-full bg-white/5 text-gray-400 py-4 rounded-[2rem] font-bold border border-white/5 flex items-center justify-center gap-3">
+                        <Share size={18} /> {String(t.profShare)}
+                      </button>
+                    </div>
+                  </div>
+               </div>
+            </div>
+
+            <div className="flex justify-center gap-12 mb-20 opacity-30">
+               <div className="flex flex-col items-center gap-1.5"><ShieldCheck size={20}/> <span className="text-[8px] font-bold uppercase tracking-widest">Scientific</span></div>
+               <div className="flex flex-col items-center gap-1.5"><Microscope size={20}/> <span className="text-[8px] font-bold uppercase tracking-widest">Biometric</span></div>
+               <div className="flex flex-col items-center gap-1.5"><Stethoscope size={20}/> <span className="text-[8px] font-bold uppercase tracking-widest">Clinical</span></div>
+            </div>
+
+            <div className="mt-12 mb-10">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#C5A059] mb-8 text-center">{String(t.reviews)}</h3>
+              <div className="space-y-4">
+                {reviews.length > 0 ? reviews.slice(0, 3).map((rev) => (
+                  <div key={rev.id} className="bg-[#0A0A0A] p-6 rounded-[2.5rem] border border-white/5">
+                    <div className="flex items-center gap-2 mb-3">
+                      {[...Array(5)].map((_, i) => <Star key={i} size={8} fill={i < Number(rev.rating) ? "#C5A059" : "none"} className={i < Number(rev.rating) ? "text-[#C5A059]" : "text-gray-200"} />)}
+                      <span className="text-[9px] font-bold text-gray-400 ml-auto uppercase">{String(rev.name)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 italic font-light leading-relaxed">"{String(rev.text)}"</p>
+                  </div>
+                )) : <p className="text-center text-gray-600 text-[10px] uppercase">Cargando...</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW: SCAN */}
+        {view === 'scan' && (
+          <div className="animate-in zoom-in-95 duration-500">
+            <div className="flex items-center justify-between mb-8">
+               <button onClick={() => setView('home')} className="p-3 bg-[#111111] rounded-2xl border border-white/10 text-gray-400"><ArrowLeft size={20}/></button>
+               <h2 className="text-lg font-serif font-bold text-white">{String(t.scanTitle)}</h2>
+               <div className="w-10"></div>
+            </div>
+            <div className="aspect-[3/4] bg-[#0A0A0A] rounded-[3.5rem] relative overflow-hidden shadow-[0_0_80px_rgba(197,160,89,0.1)] border border-white/10">
+               {isCameraActive ? (
+                 <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
+               ) : image ? (
+                 <img src={image} className="w-full h-full object-cover" />
+               ) : (
+                 <div className="h-full flex flex-col items-center justify-center gap-8 px-12 text-center">
+                    <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center text-[#C5A059] border border-white/10">
+                       <Camera size={44} strokeWidth={1} />
+                    </div>
+                    <button onClick={startCamera} className="bg-white text-black px-10 py-5 rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl">Activar Cámara</button>
+                 </div>
+               )}
+               {isCameraActive && (
+                 <div className="absolute top-10 left-1/2 -translate-x-1/2 z-30 bg-black/80 backdrop-blur-md px-6 py-2 rounded-full border border-[#C5A059]/30">
+                    <p className="text-[10px] text-[#C5A059] font-bold uppercase tracking-widest flex items-center gap-2">
+                       <RefreshCw size={12} className="animate-spin" /> {cameraFeedback || String(t.validating)}
+                    </p>
+                 </div>
+               )}
+               <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none opacity-40">
+                  <div className="w-[70%] h-[70%] border-[0.5px] border-dashed border-white rounded-[50%] animate-pulse"></div>
+               </div>
+               {isCameraActive && (
+                 <button onClick={capturePhoto} className="absolute bottom-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-white rounded-full border-8 border-white/20 shadow-2xl active:scale-90 transition-transform flex items-center justify-center z-30">
+                    <div className="w-14 h-14 bg-black rounded-full flex items-center justify-center text-white">
+                      <div className="w-2 h-2 bg-[#C5A059] rounded-full animate-ping"></div>
+                    </div>
+                 </button>
+               )}
+            </div>
+            {image && (
+               <div className="mt-10 space-y-4">
+                  <button onClick={() => setView('lead-capture')} className="w-full bg-white text-black py-6 rounded-[2.5rem] font-bold shadow-xl flex items-center justify-center gap-3">
+                     Revelar Resultados <ChevronRight size={18} className="text-[#C5A059]" />
+                  </button>
+                  <button onClick={() => {setImage(null); startCamera();}} className="w-full text-gray-500 font-bold uppercase text-[10px] tracking-widest">Repetir Escaneo</button>
+               </div>
+            )}
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+        )}
+
+        {/* VIEW: LEAD CAPTURE */}
+        {view === 'lead-capture' && (
+          <div className="animate-in fade-in slide-in-from-bottom-8">
+            <h2 className="text-3xl font-serif font-bold mb-3 text-white">{String(t.leadTitle)}</h2>
+            <p className="text-gray-400 text-sm mb-12 leading-relaxed">{String(t.leadSub)}</p>
+            <div className="space-y-6">
+               <div className="group">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#C5A059] mb-3 ml-4">Nombre Completo</p>
+                  <div className="bg-[#0A0A0A] p-6 rounded-[2.5rem] border border-white/10 flex items-center gap-4 focus-within:border-[#C5A059] transition-all shadow-inner">
+                    <User size={18} className="text-gray-600" />
+                    <input type="text" className="bg-transparent border-none outline-none w-full text-sm font-medium text-white" placeholder="Ej: Maria García" value={leadData.name} onChange={(e) => setLeadData({...leadData, name: e.target.value})} />
+                  </div>
+               </div>
+               <div className="group">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#C5A059] mb-3 ml-4">WhatsApp</p>
+                  <div className="bg-[#0A0A0A] p-6 rounded-[2.5rem] border border-white/10 flex items-center gap-4 focus-within:border-[#C5A059] transition-all shadow-inner">
+                    <Phone size={18} className="text-gray-600" />
+                    <input type="tel" className="bg-transparent border-none outline-none w-full text-sm font-medium text-white" placeholder="Ej: 600 000 000" value={leadData.phone} onChange={(e) => setLeadData({...leadData, phone: e.target.value})} />
+                  </div>
+               </div>
+            </div>
+            <button disabled={!leadData.name || !leadData.phone} onClick={runAnalysis}
+              className="w-full mt-12 bg-[#C5A059] text-white py-6 rounded-[2.5rem] font-bold shadow-2xl shadow-[#C5A059]/20"
+            >
+              Revelar Informe Clínico
+            </button>
+          </div>
+        )}
+
+        {/* VIEW: ANALYZING */}
+        {view === 'analyzing' && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="relative w-48 h-48 mb-12">
+               <div className="absolute inset-0 border-2 border-[#C5A059]/20 rounded-full animate-ping"></div>
+               <div className="absolute inset-4 border border-[#C5A059] rounded-full flex items-center justify-center bg-black overflow-hidden shadow-[0_0_50px_rgba(197,160,89,0.3)]">
+                  <Activity size={64} className="text-[#C5A059] animate-pulse" />
+                  <div className="w-full h-1 bg-[#C5A059] absolute top-0 animate-scan-line opacity-50 shadow-[0_0_10px_#C5A059]" />
+               </div>
+            </div>
+            <p className="text-xs font-bold tracking-[0.5em] uppercase text-[#C5A059] text-center px-12 leading-loose animate-pulse">{String(t.analyzing)}</p>
+          </div>
+        )}
+
+        {/* VIEW: RESULTS */}
+        {view === 'results' && diagnosis && (
+          <div className="animate-in fade-in duration-1000">
+            <div className="text-center mb-12">
+               <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#C5A059]/10 rounded-full mb-6 border border-[#C5A059]/30">
+                  <UserCheck size={14} className="text-[#C5A059]"/>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#C5A059]">Paciente: {String(leadData.name)}</span>
+               </div>
+               <h2 className="text-5xl font-serif font-bold mb-3 text-white">{String(diagnosis.skinType)}</h2>
+               <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-gray-500">{String(t.resultsTitle)}</p>
+            </div>
+
+            <div className="bg-[#0A0A0A] p-12 rounded-[3.5rem] border border-white/5 mb-8 flex justify-between shadow-inner">
+               <div className="text-center border-r border-white/5 pr-8 flex-1">
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-3">{String(t.ageEst)}</p>
+                  <p className="text-5xl font-serif font-bold text-[#C5A059]">{String(diagnosis.estimatedAge)}</p>
+               </div>
+               <div className="text-center pl-8 flex-1 opacity-20">
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-3">Fototipo</p>
+                  <p className="text-5xl font-serif font-bold text-white">{diagnosis.phototype}</p>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-10">
+               {[
+                 {l: t.metricHydra, v: diagnosis.hydration}, 
+                 {l: t.metricText, v: diagnosis.texture}, 
+                 {l: t.metricPore, v: diagnosis.pores}, 
+                 {l: t.metricLight, v: diagnosis.luminosity}
+               ].map((m, i) => (
+                  <div key={i} className="bg-[#0A0A0A] p-6 rounded-[2.5rem] border border-white/5 flex flex-col items-center">
+                    <span className="text-3xl font-serif font-bold text-[#C5A059] mb-1">{m.v}%</span>
+                    <span className="text-[8px] font-black uppercase text-gray-500 tracking-widest">{m.l}</span>
+                  </div>
+               ))}
+            </div>
+
+            <div className="bg-[#111111] rounded-[3.5rem] p-12 text-white shadow-2xl mb-8 relative overflow-hidden border border-white/5">
+               <div className="relative z-10">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.4em] text-[#C5A059] mb-5">Dictamen Profesional</h3>
+                  <p className="text-lg font-serif italic leading-relaxed text-gray-200">"{String(diagnosis.diagnosis)}"</p>
+               </div>
+               <Microscope className="absolute top-4 right-4 opacity-5 text-white" size={100} />
+            </div>
+
+            <div className="bg-white p-12 rounded-[4rem] mb-16 shadow-[0_0_50px_rgba(197,160,89,0.2)]">
+               <div className="flex items-center gap-3 mb-6 text-[#C5A059]">
+                  <Zap size={24} fill="currentColor"/>
+                  <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-black">Protocolo DLASER</h4>
+               </div>
+               <p className="text-black font-extrabold text-xl leading-relaxed mb-8">{String(diagnosis.recommendation)}</p>
+               <div className="pt-8 border-t border-gray-100 flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-black flex items-center justify-center font-bold text-[#C5A059] text-sm">DL</div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-black">Dirección Médica</span>
+                    <span className="text-[8px] font-bold uppercase text-gray-400">Medicina Estética Avanzada</span>
+                  </div>
+               </div>
+            </div>
+
+            <button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=Hola DLASER. He realizado mi diagnóstico. Resultado: ${diagnosis.skinType}. Quiero reservar cita.`)}
+              className="w-full bg-[#25D366] text-white py-6 rounded-[2.5rem] font-bold shadow-xl flex items-center justify-center gap-4 mb-12 hover:scale-[1.02] transition-transform"
+            >
+              <Phone size={24} /> {String(t.btnWhatsApp)}
+            </button>
+            <p className="text-[9px] text-center text-gray-600 mb-20 px-12 leading-relaxed uppercase tracking-widest font-bold">{String(t.disclaimer)}</p>
+          </div>
+        )}
+
+        {/* ADMIN VIEWS */}
+        {view === 'admin-login' && (
+          <div className="max-w-xs mx-auto text-center mt-20 animate-in fade-in">
+             <div className="w-20 h-20 bg-[#111111] rounded-full border border-white/10 flex items-center justify-center mx-auto mb-10 text-[#C5A059]">
+                <Lock size={32} />
+             </div>
+             <h2 className="text-2xl font-serif font-bold mb-8 text-white">{String(t.login)}</h2>
+             <input type="text" placeholder="ID Staff" className="w-full p-6 rounded-[2.5rem] border border-white/10 mb-4 text-center outline-none bg-black text-white focus:border-[#C5A059] transition-all" value={adminUser} onChange={(e) => setAdminUser(e.target.value)} />
+             <input type="password" placeholder="Key" className="w-full p-6 rounded-[2.5rem] border border-white/10 mb-8 text-center outline-none bg-black text-white focus:border-[#C5A059] transition-all" value={adminPass} onChange={(e) => setAdminPass(e.target.value)} />
+             <button onClick={() => (adminUser === ADMIN_USER && adminPass === ADMIN_PASS) ? setView('admin-dashboard') : null}
+               className="w-full bg-[#C5A059] text-white py-6 rounded-[2.5rem] font-bold shadow-xl"
+             >
+               Entrar al Panel
+             </button>
+          </div>
+        )}
+
+        {view === 'admin-dashboard' && (
+          <div className="animate-in fade-in">
+             <div className="flex justify-between items-center mb-12">
+                <div>
+                  <h2 className="text-4xl font-serif font-bold text-white leading-none">Control</h2>
+                  <p className="text-[10px] text-[#C5A059] font-bold uppercase tracking-widest mt-2">Dlaser Leads Madrid</p>
+                </div>
+                <button onClick={() => setView('home')} className="p-4 bg-red-950/30 text-red-500 rounded-2xl shadow-lg"><LogOut size={20}/></button>
+             </div>
+             <div className="space-y-4">
+                {records.map(rec => (
+                  <div key={rec.id} className="bg-[#0A0A0A] p-6 rounded-[2.5rem] border border-white/5 flex items-center gap-6 shadow-sm">
+                     <img src={rec.image} className="w-14 h-14 rounded-2xl object-cover shrink-0 border border-white/10" />
+                     <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate mb-1">{String(rec.leadName)}</p>
+                        <p className="text-xs font-bold text-[#C5A059]">{String(rec.leadPhone)}</p>
+                        <span className="text-[8px] text-gray-600 font-bold uppercase mt-1 inline-block">{new Date(rec.createdAt?.seconds * 1000).toLocaleDateString()}</span>
+                     </div>
+                     <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'diagnoses', rec.id))} className="p-3 text-gray-800 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
+                  </div>
+                ))}
+             </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* FOOTER NAVIGATION */}
+      <footer className="fixed bottom-0 left-0 w-full bg-black/95 backdrop-blur-2xl border-t border-white/5 py-8 px-12 flex justify-between items-center z-50 safe-bottom">
+        <button onClick={() => setView('home')} className={`flex flex-col items-center gap-1.5 transition-all ${view === 'home' ? 'text-[#C5A059] scale-110' : 'text-gray-600 hover:text-gray-400'}`}>
+          <Home size={24} strokeWidth={view === 'home' ? 3 : 2} />
+          <span className="text-[7px] font-black uppercase tracking-[0.2em]">{String(t.navHome)}</span>
+        </button>
+        <button onClick={() => startCamera()} className="bg-[#C5A059] w-16 h-16 rounded-[2.2rem] flex items-center justify-center text-white shadow-[0_0_40px_rgba(197,160,89,0.3)] -mt-20 border-[6px] border-black active:scale-90 transition-all">
+          <Scan size={28} />
+        </button>
+        <button onClick={() => setView('admin-login')} className={`flex flex-col items-center gap-1.5 transition-all ${view.includes('admin') ? 'text-[#C5A059] scale-110' : 'text-gray-600 hover:text-gray-400'}`}>
+          <Lock size={24} strokeWidth={view.includes('admin') ? 3 : 2} />
+          <span className="text-[7px] font-black uppercase tracking-[0.2em]">{String(t.navAdmin)}</span>
+        </button>
+      </footer>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
+        :root { --sat: env(safe-area-inset-top); --sab: env(safe-area-inset-bottom); }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #000000; color: white; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+        .safe-top { padding-top: calc(1rem + var(--sat)); }
+        .safe-bottom { padding-bottom: calc(2rem + var(--sab)); }
+        h1, h2, h3, h4, .font-serif { font-family: 'Playfair Display', serif; }
+        @keyframes scan-line { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(400px); opacity: 0; } }
+        .animate-scan-line { animation: scan-line 4s linear infinite; }
+        .animate-in { animation: fadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { display: none; }
+        input { font-size: 16px !important; }
+      `}</style>
+      
+    </div>
+  );
+}
